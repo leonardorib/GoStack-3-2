@@ -30,23 +30,94 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      const productsSaved = await AsyncStorage.getItem(
+        '@GoMarketPlace:cartProducts',
+      );
+      productsSaved && setProducts(JSON.parse(productsSaved));
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
+  // Saving cart in storage
+  const saveProducts = useCallback(async productsUpdated => {
+    await AsyncStorage.setItem(
+      '@GoMarketPlace:cartProducts',
+      JSON.stringify(productsUpdated),
+    );
   }, []);
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+  const addToCart = useCallback(
+    async product => {
+      // If the cart already have at least one product
+      if (products.length > 0) {
+        const [sameProduct] = products.filter(item => item.id === product.id);
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+        // If the product being added is already in cart
+        if (sameProduct) {
+          sameProduct.quantity += 1;
+          const notSameProduct = products.filter(
+            item => item.id !== product.id,
+          );
+
+          setProducts(() => {
+            const productsUpdated = [...notSameProduct, sameProduct];
+            saveProducts(productsUpdated);
+            return productsUpdated;
+          });
+        } else {
+          // If it's a new product being added
+          setProducts(() => {
+            const productsUpdated = [...products, { ...product, quantity: 1 }];
+            saveProducts(productsUpdated);
+            return productsUpdated;
+          });
+        }
+      } else {
+        // If there is no product in cart
+        setProducts(() => {
+          const productsUpdated = [{ ...product, quantity: 1 }];
+          saveProducts(productsUpdated);
+          return productsUpdated;
+        });
+      }
+    },
+
+    [products, saveProducts],
+  );
+
+  const increment = useCallback(
+    async id => {
+      const productsUpdated = products.map(item => {
+        return item.id === id ? { ...item, quantity: item.quantity + 1 } : item;
+      });
+      setProducts(productsUpdated);
+      saveProducts(productsUpdated);
+    },
+    [products, saveProducts],
+  );
+
+  const decrement = useCallback(
+    async id => {
+      const [product] = products.filter(item => item.id === id);
+
+      if (product.quantity === 1) {
+        const productsUpdated = products.filter(item => item.id !== id);
+        setProducts(productsUpdated);
+        saveProducts(productsUpdated);
+      } else {
+        const productsUpdated = products.map(item => {
+          return item.id === id
+            ? { ...item, quantity: item.quantity - 1 }
+            : item;
+        });
+
+        setProducts(productsUpdated);
+        saveProducts(productsUpdated);
+      }
+    },
+    [products, saveProducts],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
